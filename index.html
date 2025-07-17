@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Sistema OS Web</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- Overlay de carregamento -->
+<div id="loading-overlay" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.45);z-index:3000;align-items:center;justify-content:center;">
+  <div style="background:#222;padding:32px 48px;border-radius:18px;box-shadow:0 4px 32px #0008;display:flex;flex-direction:column;align-items:center;gap:18px;">
+    <div class="spinner" style="border:6px solid #eee;border-top:6px solid #007acc;border-radius:50%;width:48px;height:48px;animation:spin 1s linear infinite;"></div>
+    <span style="color:#fff;font-size:1.3em;">Carregando...</span>
+  </div>
+</div>
+<!-- Botão hambúrguer fixo no topo -->
+<button class="menu-hamburguer" id="btn-menu-hamburguer" onclick="toggleMenuLateral()">&#9776;</button>
+<!-- Overlay do painel de filtros (fora do painel-area) -->
+<div id="filtros-overlay" class="hidden" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.35);z-index:1000;display:flex;align-items:center;justify-content:center;">
+    <div id="painel-filtros" style="background:#f7fbff;border-radius:16px;box-shadow:0 4px 32px #00395f55;padding:24px 18px;min-width:260px;max-width:95vw;max-height:90vh;overflow:auto;position:relative;">
+        <button id="btn-fechar-filtros" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:1.5em;color:#007acc;cursor:pointer;">&times;</button>
+        <h2 style="color:#007acc;text-align:center;font-size:1.1em;margin-top:0;">Filtros</h2>
+        <div class="filtros" id="filtros-panel">
+            <!-- Filtros serão preenchidos dinamicamente aqui -->
+        </div>
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:10px;">
+            <button onclick="aplicarFiltros();fecharFiltros();return false;">Filtrar</button>
+            <button onclick="limparFiltros();fecharFiltros();return false;">Limpar</button>
+        </div>
+    </div>
+</div>
+<div id="login-area">
+    <div style="text-align:center; margin-bottom: 18px;">
+        <h1 style="margin:0; font-size:2.2em; color:var(--primary-color, #007acc);">Login</h1>
+    </div>
+    <form id="login-form">
+        <label for="usuario">Usuário:</label>
+        <input type="text" id="usuario" name="usuario" required autocomplete="username">
+        <label for="senha">Senha:</label>
+        <input type="password" id="senha" name="senha" required autocomplete="current-password">
+        <button type="submit">Entrar</button>
+        <div id="login-erro"></div>
+    </form>
+</div>
+<!-- ===== NOVO MENU LATERAL ===== -->
+<div class="menu-lateral" id="menu-lateral">
+    <div class="menu-logo" style="text-align:center;margin:18px 0 24px 0;font-size:1.5em;font-weight:bold;color:#007acc;">OS Web</div>
+    <button class="menu-item" id="menu-resumo" onclick="mostrarAba('resumo')">Resumo</button>
+    <button class="menu-item" id="menu-abrir" onclick="mostrarAba('abrir')">Abrir OS</button>
+    <button class="menu-item" id="menu-graficos" onclick="mostrarAba('graficos')">Gráficos</button>
+    <button class="logout-btn" style="margin:32px 12px 0 12px;width:calc(100% - 24px);" onclick="logout()">Sair</button>
+</div>
+<!-- ===== FIM DO MENU LATERAL ===== -->
+<div id="menu-mobile" class="menu-mobile hidden"></div>
+<!-- Removido o bloco das abas azuis -->
+<div id="painel-area" class="hidden aba-area">
+    <!-- Centralizar o título e a lupa -->
+    <div class="titulo-centralizado">
+      <span class="titulo-resumo">Resumo das Ordens de Serviço</span>
+      <button id="btn-filtros" onclick="abrirFiltros()" class="icone-lupa" style="background:none;border:none;font-size:1.2em;vertical-align:middle;margin-left:8px;cursor:pointer;" title="Filtros">&#128269;</button>
+    </div>
+    <div class="contagem" id="contagem"></div>
+    <div class="tabela-container">
+        <table>
+            <thead id="tabela-head">
+                <tr id="tabela-head-row"></tr>
+            </thead>
+            <tbody id="tabela-resumo">
+                <tr><td colspan="20">Carregando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="detalhes-os hidden" id="detalhes-os">
+        <h2>Detalhes da OS</h2>
+        <div class="detalhes-grid" id="detalhes-grid"></div>
+    </div>
+</div>
+<div id="abrir-area" class="hidden aba-area">
+    <h1>Abrir OS</h1>
+    <div style="margin-bottom:15px;">
+        <label for="abrir-os-input">Digite ou selecione o número da OS:</label>
+        <input type="text" id="abrir-os-input" list="abrir-os-list" style="width:200px;">
+        <datalist id="abrir-os-list"></datalist>
+        <button onclick="buscarAbrirOS()">Buscar</button>
+    </div>
+    <div id="abrir-detalhes"></div>
+    <div id="abrir-arquivos"></div>
+</div>
+<div id="graficos-area" class="hidden aba-area">
+    <h1 class="titulo-centralizado"><span class="titulo-resumo">Gráficos de OS</span></h1>
+    <div style="margin-bottom:15px;">
+        <label><input type="radio" name="tipo-grafico" value="mensal" checked onchange="atualizarTipoGrafico()"> Mensal</label>
+        <label><input type="radio" name="tipo-grafico" value="comparativo" onchange="atualizarTipoGrafico()"> Comparativo</label>
+    </div>
+    <div id="filtros-grafico-mensal" style="display:flex;align-items:center;gap:10px;">
+        <label for="ano-grafico-mensal">Ano:</label>
+        <select id="ano-grafico-mensal"></select>
+        <button onclick="carregarGraficoMensal()">Atualizar</button>
+    </div>
+    <div id="filtros-grafico-comparativo" class="hidden" style="display:flex;align-items:center;gap:10px;">
+        <label for="ano1-grafico">Ano 1:</label>
+        <select id="ano1-grafico"></select>
+        <label for="ano2-grafico">Ano 2:</label>
+        <select id="ano2-grafico"></select>
+        <button onclick="carregarGraficoComparativo()">Atualizar</button>
+    </div>
+    <div id="grafico-legenda" class="grafico-legenda"></div>
+    <canvas id="grafico-os" width="900" height="520"></canvas>
+    <div id="erro-grafico" style="color:red;"></div>
+</div>
+</div>
+<script>
+    let osData = [];
+    let campos = [];
+    let campoData = null;
+    // Ordem personalizada das colunas do resumo
+    const ordemColunasResumo = [
+        "Cliente", "Modelo", "OS", "Entrada equip.", "Valor", "Saída equip.", "Pagamento",
+        "Data pagamento 1", "Data pagamento 2", "Data pagamento 3", "Nº Série", "Técnico",
+        "Vezes", "avaliacao_tecnica", "causas_provavel", "status"
+    ];
+    function mostrarAba(qual) {
+        // Esconde todas as áreas de aba
+        document.querySelectorAll('.aba-area').forEach(e => e.classList.add('hidden'));
+        // Remove classe 'ativo' de todos os botões do menu lateral
+        document.querySelectorAll('.menu-item').forEach(btn => btn.classList.remove('ativo'));
+        if (qual === 'resumo') {
+            document.getElementById('painel-area').classList.remove('hidden');
+            document.getElementById('abrir-area').classList.add('hidden');
+            document.getElementById('graficos-area').classList.add('hidden');
+            document.getElementById('menu-resumo').classList.add('ativo');
+        } else if (qual === 'abrir') {
+            document.getElementById('abrir-area').classList.remove('hidden');
+            document.getElementById('painel-area').classList.add('hidden');
+            document.getElementById('graficos-area').classList.add('hidden');
+            document.getElementById('menu-abrir').classList.add('ativo');
+        } else if (qual === 'graficos') {
+            document.getElementById('graficos-area').classList.remove('hidden');
+            document.getElementById('painel-area').classList.add('hidden');
+            document.getElementById('abrir-area').classList.add('hidden');
+            document.getElementById('menu-graficos').classList.add('ativo');
+            preencherAnosGraficos();
+            carregarGraficoMensal();
+        }
+        fecharMenuLateral(); // Fecha o menu lateral após trocar de tela
+    }
+    function mostrarPainel() {
+        fecharFiltros();
+        document.body.classList.add('logado');
+        document.getElementById('login-area').classList.add('hidden');
+        document.getElementById('painel-area').classList.remove('hidden');
+        document.getElementById('abrir-area').classList.add('hidden');
+        document.getElementById('graficos-area').classList.add('hidden');
+        // Destaca o menu 'Resumo' como ativo
+        document.querySelectorAll('.menu-item').forEach(btn => btn.classList.remove('ativo'));
+        document.getElementById('menu-resumo').classList.add('ativo');
+        carregarOS();
+        preencherAbrirOSList();
+    }
+    function mostrarLogin() {
+        fecharFiltros();
+        document.body.classList.remove('logado');
+        document.getElementById('abas-navegacao').classList.add('hidden');
+        document.getElementById('painel-area').classList.add('hidden');
+        document.getElementById('abrir-area').classList.add('hidden');
+        document.getElementById('graficos-area').classList.add('hidden');
+        document.getElementById('login-area').classList.remove('hidden');
+        document.getElementById('login-form').reset();
+    }
+    document.getElementById('login-form').onsubmit = function(e) {
+        e.preventDefault();
+        document.getElementById('loading-overlay').style.display = 'flex';
+        const usuario = document.getElementById('usuario').value;
+        const senha = document.getElementById('senha').value;
+        fetch('https://teddy-html.onrender.com/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ usuario, senha })
+        })
+        .then(resp => resp.json().then(data => ({status: resp.status, data})))
+        .then(res => {
+            document.getElementById('loading-overlay').style.display = 'none';
+            if (res.status === 200 && res.data.token) {
+                setToken(res.data.token);
+                mostrarPainel();
+                document.getElementById('login-erro').textContent = '';
+            } else {
+                document.getElementById('login-erro').textContent = res.data.erro || 'Erro ao fazer login';
+            }
+        })
+        .catch(() => {
+            document.getElementById('loading-overlay').style.display = 'none';
+            document.getElementById('login-erro').textContent = 'Erro de conexão com o servidor.';
+        });
+    };
+    function carregarOS() {
+        fetchAuth('https://teddy-html.onrender.com/api/os_todos')
+            .then(resp => resp.json())
+            .then(data => {
+                if (data.erro) {
+                    document.getElementById('tabela-resumo').innerHTML = `<tr><td colspan="20">${data.erro}</td></tr>`;
+                    return;
+                }
+                osData = data;
+                if (osData.length === 0) {
+                    document.getElementById('tabela-resumo').innerHTML = '<tr><td colspan="20">Nenhuma OS encontrada.</td></tr>';
+                    return;
+                }
+                campos = Object.keys(osData[0]);
+                campoData = campos.find(c => c.toLowerCase().includes('entrada'));
+                renderTabela(osData);
+            });
+    }
+    function preencherFiltros() {
+        // Mapeamento entre campo do objeto e id do select
+        const camposFiltro = [
+            { campo: 'Cliente', id: 'filtro-Cliente' },
+            { campo: 'Modelo', id: 'filtro-Modelo' },
+            { campo: 'OS', id: 'filtro-OS' },
+            { campo: 'Série', id: 'filtro-Série' },
+            { campo: 'Técnico', id: 'filtro-Técnico' }
+        ];
+        const sets = {};
+        camposFiltro.forEach(f => sets[f.campo] = new Set());
+        const anos = new Set();
+        osData.forEach(os => {
+            camposFiltro.forEach(f => {
+                if (os[f.campo]) sets[f.campo].add(os[f.campo]);
+            });
+            if (campoData && os[campoData]) {
+                const d = parseData(os[campoData]);
+                if (d) anos.add(d.getFullYear());
+            }
+        });
+        camposFiltro.forEach(f => {
+            const el = document.getElementById(f.id);
+            if (!el) return; // Evita erro se o elemento não existir
+            const val = el.value;
+            el.innerHTML = '<option value="">Todos</option>' + Array.from(sets[f.campo]).sort().map(v=>`<option value="${v}">${v}</option>`).join('');
+            el.value = val;
+        });
+        const elAno = document.getElementById('filtro-ano');
+        if (elAno) {
+        const valAno = elAno.value;
+        elAno.innerHTML = '<option value="">Todos</option>' + Array.from(anos).sort().map(a=>`<option value="${a}">${a}</option>`).join('');
+        elAno.value = valAno;
+        }
+    }
+    function aplicarFiltros() {
+        const camposFiltro = ['Cliente','Modelo','OS','Técnico'];
+        [...camposFiltro,'mes','ano','texto'].forEach(c => {
+            const el = document.getElementById('filtro-'+c);
+            window['filtro_'+c+'_valor'] = el ? el.value : '';
+        });
+        let filtrado = osData;
+        camposFiltro.forEach(c => {
+            const el = document.getElementById('filtro-'+c);
+            const v = el ? el.value : '';
+            if (v) filtrado = filtrado.filter(os => (os[c]||'').toString().toLowerCase().includes(v.toLowerCase()));
+        });
+        // Filtro de número de série (todas as variações)
+        const numSerieFiltro = document.getElementById('filtro-num-serie').value.trim().toLowerCase();
+        if (numSerieFiltro) {
+            filtrado = filtrado.filter(os => {
+                const camposSerie = ['Nº Série', 'num_serie', 'numero_serie', 'n_serie', 'Série', 'serie'];
+                return camposSerie.some(campo => (os[campo] || '').toString().toLowerCase().includes(numSerieFiltro));
+            });
+        }
+        const elMes = document.getElementById('filtro-mes');
+        const mes = elMes ? elMes.value : '';
+        if (mes && campoData) filtrado = filtrado.filter(os => {
+            const d = parseData(os[campoData]);
+            return d && (d.getMonth()+1) == parseInt(mes);
+        });
+        const elAno = document.getElementById('filtro-ano');
+        const ano = elAno ? elAno.value : '';
+        if (ano && campoData) filtrado = filtrado.filter(os => {
+            const d = parseData(os[campoData]);
+            return d && d.getFullYear() == parseInt(ano);
+        });
+        const elTxt = document.getElementById('filtro-texto');
+        const txt = elTxt ? elTxt.value.trim().toLowerCase() : '';
+        if (txt) filtrado = filtrado.filter(os => Object.values(os).some(v => (v||'').toString().toLowerCase().includes(txt)));
+        renderTabela(filtrado);
+        fecharFiltros();
+    }
+    function limparFiltros() {
+        const camposFiltro = ['Cliente','Modelo','OS','Série','Técnico'];
+        [...camposFiltro,'mes','ano','texto'].forEach(c => {
+            window['filtro_'+c+'_valor'] = '';
+        });
+        aplicarFiltros();
+        fecharFiltros();
+    }
+    function renderTabela(data) {
+        // Ordena por Cliente em ordem crescente
+        data = data.slice().sort((a, b) => (a['Cliente'] || '').localeCompare(b['Cliente'] || ''));
+        const headRow = document.getElementById('tabela-head-row');
+        headRow.innerHTML = '';
+        ordemColunasResumo.forEach(c => {
+            const th = document.createElement('th');
+            // Substitui _ por espaço e coloca a primeira letra maiúscula
+            let titulo = c.replace(/_/g, ' ');
+            titulo = titulo.charAt(0).toUpperCase() + titulo.slice(1);
+            th.textContent = titulo;
+            headRow.appendChild(th);
+        });
+        const tbody = document.getElementById('tabela-resumo');
+        tbody.innerHTML = '';
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="'+ordemColunasResumo.length+'">Nenhuma OS encontrada.</td></tr>';
+        } else {
+            data.forEach(os => {
+                const tr = document.createElement('tr');
+                ordemColunasResumo.forEach(c => {
+                    const td = document.createElement('td');
+                    td.textContent = os[c]||'';
+                    tr.appendChild(td);
+                });
+                tr.onclick = () => mostrarDetalhes(os.id);
+                tbody.appendChild(tr);
+            });
+        }
+        document.getElementById('contagem').textContent = `Registros: ${data.length}`;
+        document.getElementById('detalhes-os').classList.add('hidden');
+    }
+    function mostrarDetalhes(os_id) {
+        fetchAuth(`https://teddy-html.onrender.com/api/os_detalhe/${os_id}`)
+            .then(resp => resp.json())
+            .then(data => {
+                if (data.erro) {
+                    alert(data.erro);
+                    return;
+                }
+                const grid = document.getElementById('detalhes-grid');
+                grid.innerHTML = '';
+                ordemColunasResumo.forEach(campo => {
+                    // Procura o campo ignorando maiúsculas/minúsculas e acentos
+                    let key = Object.keys(data).find(k => removerAcentos(k).toLowerCase() === removerAcentos(campo).toLowerCase());
+
+                    // Busca variações para Nº Série e Causa Provável
+                    if (!key && campo.toLowerCase().includes('nº série')) {
+                        key = Object.keys(data).find(k => 
+                            [
+                                'n_serie', 'num_serie', 'numero_serie', 'nº serie', 'nº série', 'num serie', 'num série', 'n° serie', 'série', 'serie'
+                            ].includes(removerAcentos(k).toLowerCase())
+                        );
+                    }
+                    if (!key && campo.toLowerCase().includes('causa')) {
+                        key = Object.keys(data).find(k => ['causas_provavel', 'causa_provavel', 'causa provável'].includes(removerAcentos(k).toLowerCase()));
+                    }
+
+                    if (key) {
+                    const label = document.createElement('label');
+                        let titulo = campo.replace(/_/g, ' ');
+                        titulo = titulo.charAt(0).toUpperCase() + titulo.slice(1);
+                        label.textContent = titulo + ':';
+                    const span = document.createElement('span');
+                        span.textContent = data[key] || '';
+                    grid.appendChild(label);
+                    grid.appendChild(span);
+                    }
+                });
+                document.getElementById('detalhes-os').classList.remove('hidden');
+                window.scrollTo({top:0,behavior:'smooth'});
+            });
+    }
+    function parseData(val) {
+        if (!val) return null;
+        if (typeof val === 'string') {
+            val = val.replace(/\//g,'-');
+            const parts = val.split('-');
+            if (parts.length === 3) {
+                const [a,b,c] = parts;
+                if (a.length === 4) return new Date(a,b-1,c);
+                if (c.length === 4) return new Date(c,b-1,a);
+            }
+        }
+        const d = new Date(val);
+        return isNaN(d.getTime()) ? null : d;
+    }
+    function logout() {
+        fecharFiltros();
+        removeToken();
+        mostrarLogin();
+    }
+    function preencherAbrirOSList() {
+        const lista = document.getElementById('abrir-os-list');
+        lista.innerHTML = '';
+        const osSet = new Set();
+        osData.forEach(os => {
+            if (os.os) osSet.add(os.os.toString().trim());
+        });
+        Array.from(osSet).sort().forEach(osnum => {
+            const opt = document.createElement('option');
+            opt.value = osnum;
+            lista.appendChild(opt);
+        });
+    }
+    function buscarAbrirOS() {
+        const osnum = document.getElementById('abrir-os-input').value.trim();
+        if (!osnum) return;
+        // Buscar detalhes (tolerante a string/numero e ao nome do campo)
+        const osObj = osData.find(o => {
+            const osKey = Object.keys(o).find(k => k.toLowerCase() === 'os');
+            return osKey && o[osKey] && o[osKey].toString().trim() === osnum;
+        });
+        if (!osObj) {
+            document.getElementById('abrir-detalhes').innerHTML = '<div style="color:red;">OS não encontrada.</div>';
+            document.getElementById('abrir-arquivos').innerHTML = '';
+            return;
+        }
+        let html = '<div class="detalhes-os"><h2>Detalhes da OS</h2><div class="detalhes-grid">';
+        Object.entries(osObj).forEach(([k,v]) => {
+            html += `<label>${k}:</label><span>${v||''}</span>`;
+        });
+        html += '</div></div>';
+        document.getElementById('abrir-detalhes').innerHTML = html;
+        // Buscar arquivos
+        const clienteKey = Object.keys(osObj).find(k => k.toLowerCase() === 'cliente');
+        const osKey = Object.keys(osObj).find(k => k.toLowerCase() === 'os');
+        fetchAuth(`https://teddy-html.onrender.com/api/os_arquivos/${encodeURIComponent(osObj[clienteKey])}/${encodeURIComponent(osObj[osKey])}`)
+            .then(resp => resp.json())
+            .then(data => {
+                if (!data.arquivos || data.arquivos.length === 0) {
+                    document.getElementById('abrir-arquivos').innerHTML = '<div>Nenhum arquivo encontrado.</div>';
+                    return;
+                }
+                let ex = data.arquivos.filter(a=>a.endsWith('.xlsx'));
+                let pdf = data.arquivos.filter(a=>a.endsWith('.pdf'));
+                let html = '<div style="display:flex;gap:20px;flex-wrap:wrap;"><div><b>Excel</b><ul>';
+                ex.forEach(f=>{ html += `<li><a href="https://teddy-html.onrender.com/api/download_arquivo/${encodeURIComponent(osObj[clienteKey])}/${encodeURIComponent(osObj[osKey])}/${encodeURIComponent(f)}" target="_blank">${f}</a></li>`; });
+                html += '</ul></div><div><b>PDF</b><ul>';
+                pdf.forEach(f=>{ html += `<li><a href="https://teddy-html.onrender.com/api/download_arquivo/${encodeURIComponent(osObj[clienteKey])}/${encodeURIComponent(osObj[osKey])}/${encodeURIComponent(f)}" target="_blank">${f}</a></li>`; });
+                html += '</ul></div></div>';
+                document.getElementById('abrir-arquivos').innerHTML = html;
+            });
+    }
+    // Função utilitária para remover acentos
+    function removerAcentos(str) {
+        return str.normalize('NFD').replace(/[\u0300-\u036f]/g, "");
+    }
+    function preencherAnosGraficos() {
+        // Preencher selects de anos manualmente para teste
+        const anosArr = [2026, 2025 ,2024, 2023, 2022];
+        const selMensal = document.getElementById('ano-grafico-mensal');
+        
+        const sel1 = document.getElementById('ano1-grafico');
+        const sel2 = document.getElementById('ano2-grafico');
+        selMensal.innerHTML = anosArr.map(a=>`<option value="${a}">${a}</option>`).join('');
+        sel1.innerHTML = anosArr.map(a=>`<option value="${a}">${a}</option>`).join('');
+        sel2.innerHTML = anosArr.map(a=>`<option value="${a}">${a}</option>`).join('');
+    }
+    function atualizarTipoGrafico() {
+        const tipo = document.querySelector('input[name="tipo-grafico"]:checked').value;
+        document.getElementById('filtros-grafico-mensal').classList.toggle('hidden', tipo !== 'mensal');
+        document.getElementById('filtros-grafico-comparativo').classList.toggle('hidden', tipo !== 'comparativo');
+        if (tipo === 'mensal') carregarGraficoMensal();
+        else carregarGraficoComparativo();
+    }
+    let chart = null;
+    function carregarGraficoMensal() {
+        const ano = document.getElementById('ano-grafico-mensal').value;
+        if (!ano) return;
+        fetchAuth(`https://teddy-html.onrender.com/api/grafico_mensal/${ano}`)
+            .then(resp => resp.json())
+            .then(data => {
+                if (data.erro) {
+                    document.getElementById('erro-grafico').textContent = data.erro;
+                    return;
+                }
+                document.getElementById('erro-grafico').textContent = '';
+                renderGraficoMensal(data.meses, data.valores, ano);
+            });
+    }
+    function carregarGraficoComparativo() {
+        const ano1 = document.getElementById('ano1-grafico').value;
+        const ano2 = document.getElementById('ano2-grafico').value;
+        if (!ano1 || !ano2) return;
+        fetchAuth(`https://teddy-html.onrender.com/api/grafico_comparativo/${ano1}/${ano2}`)
+            .then(resp => resp.json())
+            .then(data => {
+                if (data.erro) {
+                    document.getElementById('erro-grafico').textContent = data.erro;
+                    return;
+                }
+                document.getElementById('erro-grafico').textContent = '';
+                renderGraficoComparativo(data.meses, data.valores1, data.valores2, ano1, ano2);
+            });
+    }
+    function renderGraficoMensal(meses, valores, ano) {
+        if (chart) chart.destroy();
+        const ctx = document.getElementById('grafico-os').getContext('2d');
+        // Atualiza legenda customizada
+        document.getElementById('grafico-legenda').innerHTML = `
+          <span class="legenda-item"><span class="legenda-cor" style="background:rgba(0,123,255,0.6);"></span>Valor por mês (${ano})</span>
+        `;
+        chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: meses,
+                datasets: [{
+                    label: `Valor por mês (${ano})`,
+                    data: valores,
+                    backgroundColor: 'rgba(0,123,255,0.6)'
+                }]
+            },
+            options: {
+                responsive: true,
+                layout: { padding: { top: 100 } },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    datalabels: {
+                        anchor: 'end',
+                        align: 'end',
+                        color: '#111',
+                        font: { weight: 'bold', size: 14 },
+                        rotation: -90,
+                        offset: 8,
+                        formatter: function(value) {
+                            return value > 0 ? 'R$ ' + value.toLocaleString('pt-BR', {minimumFractionDigits: 2}) : '';
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        display: false
+                    }
+                }
+            },
+            plugins: [ChartDataLabels]
+        });
+    }
+    function renderGraficoComparativo(meses, valores1, valores2, ano1, ano2) {
+        if (chart) chart.destroy();
+        const ctx = document.getElementById('grafico-os').getContext('2d');
+        // Atualiza legenda customizada
+        document.getElementById('grafico-legenda').innerHTML = `
+          <span class="legenda-item"><span class="legenda-cor" style="background:rgba(0,123,255,0.6);"></span>Ano ${ano1}</span>
+          <span class="legenda-item"><span class="legenda-cor" style="background:rgba(220,53,69,0.6);"></span>Ano ${ano2}</span>
+        `;
+        chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: meses,
+                datasets: [
+                    { label: `Ano ${ano1}`, data: valores1, backgroundColor: 'rgba(0,123,255,0.6)' },
+                    { label: `Ano ${ano2}`, data: valores2, backgroundColor: 'rgba(220,53,69,0.6)' }
+                ]
+            },
+            options: {
+                responsive: true,
+                layout: { padding: { top: 100 } },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    datalabels: {
+                        anchor: 'end',
+                        align: 'end',
+                        color: '#111',
+                        font: { weight: 'bold', size: 14 },
+                        rotation: -90,
+                        offset: 8,
+                        formatter: function(value) {
+                            return value > 0 ? 'R$ ' + value.toLocaleString('pt-BR', {minimumFractionDigits: 2}) : '';
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        display: false
+                    }
+                }
+            },
+            plugins: [ChartDataLabels]
+        });
+    }
+    // MENU HAMBURGUER MOBILE
+    function toggleMenuLateral() {
+        const menu = document.getElementById('menu-lateral');
+        menu.classList.toggle('aberta');
+    }
+    function fecharMenuLateral() {
+        const menu = document.getElementById('menu-lateral');
+        menu.classList.remove('aberta');
+    }
+    function abrirFiltros() {
+        console.log('abrirFiltros chamado');
+        const filtrosPanel = document.getElementById('filtros-panel');
+        filtrosPanel.innerHTML = `
+            <div>
+                <label for="filtro-Cliente">Cliente:</label>
+                <input type="text" id="filtro-Cliente" list="lista-Cliente" placeholder="Digite ou selecione o cliente">
+                <datalist id="lista-Cliente"></datalist>
+            </div>
+            <div>
+                <label for="filtro-Modelo">Modelo:</label>
+                <input type="text" id="filtro-Modelo" list="lista-Modelo" placeholder="Digite ou selecione o modelo">
+                <datalist id="lista-Modelo"></datalist>
+            </div>
+            <div>
+                <label for="filtro-OS">OS:</label>
+                <input type="text" id="filtro-OS" list="lista-OS" placeholder="Digite ou selecione a OS">
+                <datalist id="lista-OS"></datalist>
+            </div>
+            <div>
+                <label for="filtro-num-serie">Nº Série:</label>
+                <input type="text" id="filtro-num-serie" list="lista-num-serie" placeholder="Digite ou selecione o número de série">
+                <datalist id="lista-num-serie"></datalist>
+            </div>
+            <div>
+                <label for="filtro-Técnico">Técnico:</label>
+                <input type="text" id="filtro-Técnico" list="lista-Técnico" placeholder="Digite ou selecione o técnico">
+                <datalist id="lista-Técnico"></datalist>
+            </div>
+            <div>
+                <label for="filtro-mes">Mês:</label>
+                <select id="filtro-mes">
+                    <option value="">Todos</option>
+                    <option value="1">Janeiro</option>
+                    <option value="2">Fevereiro</option>
+                    <option value="3">Março</option>
+                    <option value="4">Abril</option>
+                    <option value="5">Maio</option>
+                    <option value="6">Junho</option>
+                    <option value="7">Julho</option>
+                    <option value="8">Agosto</option>
+                    <option value="9">Setembro</option>
+                    <option value="10">Outubro</option>
+                    <option value="11">Novembro</option>
+                    <option value="12">Dezembro</option>
+                </select>
+            </div>
+            <div>
+                <label for="filtro-ano">Ano:</label>
+                <select id="filtro-ano"><option value="">Todos</option></select>
+            </div>
+            <div>
+                <label for="filtro-texto">Busca livre:</label>
+                <input type="text" id="filtro-texto" placeholder="Digite para buscar...">
+            </div>
+        `;
+        
+        // Mostrar o overlay dos filtros
+        document.getElementById('filtros-overlay').classList.remove('hidden');
+        
+        // Configurar o botão de fechar
+        const btnFechar = document.getElementById('btn-fechar-filtros');
+        if (btnFechar) {
+            btnFechar.onclick = fecharFiltros;
+        }
+
+        // Preencher datalists com valores únicos
+        setTimeout(() => {
+            const camposFiltro = [
+                { campo: 'Cliente', id: 'lista-Cliente' },
+                { campo: 'Modelo', id: 'lista-Modelo' },
+                { campo: 'OS', id: 'lista-OS' },
+                { campo: 'Técnico', id: 'lista-Técnico' }
+            ];
+            camposFiltro.forEach(f => {
+                const datalist = document.getElementById(f.id);
+                if (!datalist) return;
+                const valores = new Set();
+                osData.forEach(os => {
+                    if (os[f.campo]) valores.add(os[f.campo]);
+                });
+                datalist.innerHTML = Array.from(valores).sort((a, b) => a.localeCompare(b)).map(v => `<option value="${v}">`).join('');
+            });
+            // Nº Série (todas as variações)
+            const listaNumSerie = document.getElementById('lista-num-serie');
+            if (listaNumSerie) {
+                const camposSerie = ['Nº Série', 'num_serie', 'numero_serie', 'n_serie', 'Série', 'serie'];
+                const valoresSerie = new Set();
+                osData.forEach(os => {
+                    camposSerie.forEach(campo => {
+                        if (os[campo]) valoresSerie.add(os[campo]);
+                    });
+                });
+                listaNumSerie.innerHTML = Array.from(valoresSerie).sort((a, b) => a.localeCompare(b)).map(v => `<option value="${v}">`).join('');
+            }
+            preencherFiltros();
+        }, 0);
+    }
+    function fecharFiltros() {
+        console.log('fecharFiltros chamado');
+        document.getElementById('filtros-overlay').classList.add('hidden');
+        // Limpa o conteúdo do painel de filtros para evitar resíduos
+        var panel = document.getElementById('filtros-panel');
+        if (panel) panel.innerHTML = '';
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        fecharFiltros(); // Garante que o overlay sempre começa oculto
+        var overlay = document.getElementById('filtros-overlay');
+        if (overlay) {
+            overlay.addEventListener('click', function(e) {
+                if (e.target.id === 'filtros-overlay') fecharFiltros();
+            });
+        }
+        var btnFiltro = document.getElementById('btn-filtros');
+        if (btnFiltro) {
+            btnFiltro.onclick = abrirFiltros;
+        }
+        const btnMenu = document.getElementById('btn-menu-hamburguer');
+        if (btnMenu) btnMenu.onclick = toggleMenuLateral;
+        // Fecha menu ao clicar fora
+        document.addEventListener('click', function(e) {
+            const menu = document.getElementById('menu-lateral');
+            const abas = document.getElementById('abas-navegacao');
+            if (menu && menu.classList.contains('aberta') && !menu.contains(e.target) && e.target.id !== 'btn-menu-hamburguer') {
+                fecharMenuLateral();
+                if (abas) abas.style.display = 'none';
+            }
+        });
+        // Garante abas visíveis sempre que o menu lateral estiver aberto
+        const menu = document.getElementById('menu-lateral');
+        const abas = document.getElementById('abas-navegacao');
+        if (menu && menu.classList.contains('aberta') && abas) {
+            abas.style.display = 'flex';
+        }
+    });
+    function atualizarMenuMobileAbaAtiva() {
+        const menu = document.getElementById('menu-lateral');
+        if (!menu || menu.classList.contains('hidden')) return;
+        menu.innerHTML = `
+            <button class="${document.getElementById('aba-resumo').classList.contains('aba-ativa') ? 'aba-ativa' : ''}" onclick="mostrarAba('resumo')">Resumo</button>
+            <button class="${document.getElementById('aba-abrir').classList.contains('aba-ativa') ? 'aba-ativa' : ''}" onclick="mostrarAba('abrir')">Abrir OS</button>
+            <button class="${document.getElementById('aba-graficos').classList.contains('aba-ativa') ? 'aba-ativa' : ''}" onclick="mostrarAba('graficos')">Gráficos</button>
+        `;
+    }
+    // Salva e recupera o token JWT
+    function setToken(token) {
+        localStorage.setItem('jwt_token', token);
+    }
+    function getToken() {
+        return localStorage.getItem('jwt_token');
+    }
+    function removeToken() {
+        localStorage.removeItem('jwt_token');
+    }
+    function fetchAuth(url, options = {}) {
+        const token = getToken();
+        options.headers = options.headers || {};
+        if (token) options.headers['Authorization'] = 'Bearer ' + token;
+        return fetch(url, options);
+    }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+<style>
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+</style>
+</body>
+</html> 

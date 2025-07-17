@@ -1,0 +1,11 @@
+    flask
+    flask-cors
+    psycopg2
+    gunicorn
+    pandas
+    jwt
+
+
+
+
+
